@@ -14,7 +14,7 @@ static void __stdcall InternetNotify(HINTERNET hInternet,
 	SIGNIN_P("%d",dwContext);
 	switch(dwContext)
 	{
-		ssss
+		
 	}
 
 }
