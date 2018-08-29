@@ -1,6 +1,7 @@
 #ifndef _signinbob_h
 #define _signinbob_h
 
+// global switch for debug
 //#define NDEBUG
 
 #include "signinbob_log.h"
