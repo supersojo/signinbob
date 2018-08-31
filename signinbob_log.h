@@ -1,9 +1,10 @@
 #ifndef _signinbob_log_h
 #define _signinbob_log_h
+#include <windows.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
+/*
+ use mutex to synchronous write out
+*/
 
 class SigninLogger{
 public:
@@ -14,55 +15,17 @@ public:
 	};
 	SigninLogger(){
 		level=Err;
+		if(mutex==NULL)
+			mutex = CreateMutex(NULL,0/*owner*/,"lock");
 	}
 	void SetLevel(int lev)
 	{
 		level = lev;
 	}
-	int Log(int lev,char* fmt,...){
-		int len = 0;
-		if(lev<=level){
-			va_list args;
-			va_start(args,fmt);
-			len += fprintf(stdout,"%s",LogLevelName(lev));
-			len += vfprintf(stdout,fmt,args);
-			va_end(args);
-		}
-		return len;
-	}
-	int D(char* fmt,...){
-		int len = 0;
-		if(Dbg<=level){
-			va_list args;
-			va_start(args,fmt);
-			len += fprintf(stdout,"[Dbg]");
-			len += vfprintf(stdout,fmt,args);
-			va_end(args);
-		}
-		return len;
-	}
-	int I(char* fmt,...){
-		int len = 0;
-		if(Info<=level){
-			va_list args;
-			va_start(args,fmt);
-			len += fprintf(stdout,"[Info]");
-			len += vfprintf(stdout,fmt,args);
-			va_end(args);
-		}
-		return len;
-	}
-	int E(char* fmt,...){
-		int len = 0;
-		if(Err<=level){
-			va_list args;
-			va_start(args,fmt);
-			len += fprintf(stdout,"[Err]");
-			len = vfprintf(stdout,fmt,args);
-			va_end(args);
-		}
-		return len;
-	}
+	int Log(int lev,char* fmt,...);
+	int D(char* fmt,...);
+	int I(char* fmt,...);
+	int E(char* fmt,...);
 private:
 	char* LogLevelName(int lev){
 		if(lev==Err)
@@ -74,15 +37,9 @@ private:
 		// others
 		return "";
 	}
+	static HANDLE mutex;
 	int level;
 };
-int signinbob_log(char* fmt,...);
-inline int signinbob_nolog(char* fmt,...);
 
-#ifndef NDEBUG
-#	define SIGNIN_P do{fprintf(stdout,"(%s,%d)",__FILE__,__LINE__);}while(0);signinbob_log
-#else
-#	define SIGNIN_P signinbob_nolog
-#endif
 
 #endif
