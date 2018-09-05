@@ -2,3 +2,5 @@
 signinbob.ncb
 signinbob.plg
 signinbob.opt
+/signinbob_net.cpp
+/signinbob_net.h
