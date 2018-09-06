@@ -1,8 +1,9 @@
 #include <windows.h>
 
 #ifndef DWORD_PTR
-typedef ULONG_PTR DWORD_PTR;
+typedef unsigned long * DWORD_PTR;
 #endif
+#include <windows.h>
 #include <winhttp.h>
 
 class WinHttpHandle
@@ -62,6 +63,7 @@ private:
 protected:
 	HRESULT OnCallback(DWORD code,void* info,DWORD length);
 	virtual HRESULT OnReadComplete(char* data,int len);
+	virtual HRESULT OnWriteData(int len);
 	virtual void OnResponseComplete(HRESULT result);
 	static void CALLBACK Callback(HINTERNET handle,
 		DWORD_PTR context,
@@ -81,4 +83,20 @@ public:
 private:
 	HANDLE m_hc;
 	HRESULT m_result;
+};
+
+class PostDataRequest : public WinHttpRequest
+{
+public:
+	HRESULT Initialize(PCWSTR path,const WinHttpConnection& connection);
+	virtual void OnResponseComplete(HRESULT result);
+	virtual HRESULT OnReadComplete(char* data,int len);
+	virtual HRESULT OnWriteData(int len);
+	HRESULT Wait();
+private:
+	int count;
+	HANDLE m_hc;
+	HRESULT m_result;
+
+	
 };

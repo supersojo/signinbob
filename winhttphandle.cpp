@@ -58,7 +58,7 @@ HRESULT WinHttpHandle::QueryOption(DWORD option,void* value,DWORD &len)const
 HRESULT WinHttpSession::Initialize()
 {
 	HINTERNET h;
-#if 0
+#if 1
 	h = ::WinHttpOpen(L"",
 			WINHTTP_ACCESS_TYPE_NAMED_PROXY,
 			L"10.167.196.133:8080",
@@ -143,7 +143,6 @@ void CALLBACK WinHttpRequest::Callback(HINTERNET handle,
 									   void* info,
 									   DWORD length)
 {
-	//printf("code %x\n",code);
 	if(context)
 	{
 		WinHttpRequest* pt = reinterpret_cast<WinHttpRequest*>(context);
@@ -158,9 +157,23 @@ HRESULT WinHttpRequest::OnCallback(DWORD code,void* info,DWORD length)
 	switch(code)
 	{
 	case WINHTTP_CALLBACK_STATUS_SENDREQUEST_COMPLETE:
-		if(!::WinHttpReceiveResponse(GetHandle(),0))
-			return HRESULT_FROM_WIN32(::GetLastError());
+	case WINHTTP_CALLBACK_STATUS_WRITE_COMPLETE:
+	{
+		HRESULT result;
+		if(code==WINHTTP_CALLBACK_STATUS_SENDREQUEST_COMPLETE)
+			result = OnWriteData(0);
+		else
+			result = OnWriteData(*((DWORD*)info));
+		if(FAILED(result))
+			return result;
+
+		if(S_FALSE==result)
+		{
+			if(!::WinHttpReceiveResponse(GetHandle(),0))
+				return HRESULT_FROM_WIN32(::GetLastError());
+		}
 		break;
+	}
 	case WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE:
 	{
 		DWORD statusCode = 0;
@@ -184,6 +197,9 @@ HRESULT WinHttpRequest::OnCallback(DWORD code,void* info,DWORD length)
 			return HRESULT_FROM_WIN32(::GetLastError());
 		break;
 	}
+	case WINHTTP_CALLBACK_STATUS_REQUEST_ERROR:
+		printf("error\n");
+		break;
 	case WINHTTP_CALLBACK_STATUS_READ_COMPLETE:
 		if(length>0)
 		{
@@ -210,6 +226,11 @@ HRESULT WinHttpRequest::OnReadComplete(char* data,int len)
 	return S_OK;
 }
 
+HRESULT WinHttpRequest::OnWriteData(int len)
+{
+	return S_FALSE;
+}
+
 HRESULT DownloadFileRequest::Initialize(PCWSTR path,const WinHttpConnection& connection)
 {
 	m_hc = ::CreateEvent(NULL,0,0,""); 
@@ -219,7 +240,7 @@ HRESULT DownloadFileRequest::Initialize(PCWSTR path,const WinHttpConnection& con
 HRESULT DownloadFileRequest::OnReadComplete(char* data,int len)
 {
 	*(data+len)='\0';
-	printf("%s",data);
+	//printf("%s",data);
 	return S_OK;
 }
 
@@ -235,7 +256,55 @@ void DownloadFileRequest::OnResponseComplete(HRESULT result)
 
 HRESULT DownloadFileRequest::Wait()
 {
-	::WaitForSingleObject(m_hc,INFINITE);
+	::WaitForSingleObject(m_hc,5*1000);
+	return m_result;
+}
+
+HRESULT PostDataRequest::Initialize(PCWSTR path,const WinHttpConnection& connection)
+{
+	count = 6;
+	m_hc = ::CreateEvent(NULL,0,0,""); 
+	return WinHttpRequest::Initialize(path,L"POST",connection);
+}
+
+HRESULT PostDataRequest::OnReadComplete(char* data,int len)
+{
+	*(data+len)='\0';
+	//printf("%s\n",data);
+	return S_OK;
+}
+
+void PostDataRequest::OnResponseComplete(HRESULT result)
+{
+	m_result = result;
+	SetEvent(m_hc);
+
+	if(result==S_OK)
+	{
+	}
+}
+
+HRESULT PostDataRequest::OnWriteData(int len)
+{
+
+	count-=len;
+	if(count>0)
+	{
+
+		if(!::WinHttpWriteData(GetHandle(),"H=h",3,0)){
+
+			return HRESULT_FROM_WIN32(::GetLastError());
+		}
+
+		return S_OK;
+	}
+
+	return S_FALSE;
+}
+
+HRESULT PostDataRequest::Wait()
+{
+	::WaitForSingleObject(m_hc,5*1000);
 	return m_result;
 }
 
@@ -247,11 +316,28 @@ int main()
 		return -1;
 	}
 	WinHttpConnection con;
-	if(FAILED(con.Initialize(L"www.jd.com",80,ses)))
+	if(FAILED(con.Initialize(L"www.baidu.com",80,ses)))
 	{
 		printf("con failed\n");
 		return -1;
 	}
+
+	while(1){
+		PostDataRequest req;
+		if(FAILED(req.Initialize(L"/",con)))
+		{
+			printf("req failed\n");
+			return -1;
+		}
+		if(FAILED(req.SendRequest(NULL,0,NULL,0,0)))
+			printf("send req failed\n");
+		else
+			printf("send ok\n");
+		HRESULT res = req.Wait();
+		printf("result=%d\n",res);
+		Sleep(1000);
+	}
+#if 0
 	while(1)
 	{
 		DownloadFileRequest req;
@@ -268,5 +354,6 @@ int main()
 		printf("result=%d\n",res);
 
 		Sleep(1000);
-	};
+	}
+#endif
 }
